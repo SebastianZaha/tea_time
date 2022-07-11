@@ -1,0 +1,6 @@
+github.com/SebastianZaha/webview v0.0.0-20220711105621-b6e46ae0da35 h1:dx3NvO0qQ/Hs3RmQeWRA4LpxIKzXIWKu7I8yj3vW7uk=
+github.com/SebastianZaha/webview v0.0.0-20220711105621-b6e46ae0da35/go.mod h1:vn7VmQCtqxfXrwQ3kI0vMMkbVSAhF3Nh5DqpbRPkc4I=
+github.com/SebastianZaha/webview v0.0.0-20220711154216-3d2de0cae139 h1:QZxiSoxEd4yqlR2dhtkgu1/qymS0E/j0eRRLLmo1sGI=
+github.com/SebastianZaha/webview v0.0.0-20220711154216-3d2de0cae139/go.mod h1:vn7VmQCtqxfXrwQ3kI0vMMkbVSAhF3Nh5DqpbRPkc4I=
+github.com/go-chi/chi v1.5.4 h1:QHdzF2szwjqVV4wmByUnTcsbIg7UGaQ0tPF2t5GcAIs=
+github.com/go-chi/chi v1.5.4/go.mod h1:uaf8YgoFazUOkPBG7fxPftUylNumIev9awIWOENIuEg=
