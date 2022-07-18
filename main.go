@@ -1,17 +1,22 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"html/template"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 
+	"github.com/SebastianZaha/systray"
 	"github.com/SebastianZaha/webview"
 )
 
@@ -24,8 +29,9 @@ var ui embed.FS
 var addr = "localhost:3009"
 var srv = &http.Server{}
 
-var view webview.WebView
 var templates *template.Template
+
+var win *window
 
 func main() {
 	// listen first to be sure that the webview does not error out when fetching
@@ -51,14 +57,48 @@ func main() {
 
 	log.Printf("Running server on %s", addr)
 	srv := &http.Server{Handler: router}
-	go func() { log.Fatal(srv.Serve(listener)) }()
 
-	view := webview.New(true)
-	defer view.Destroy()
-	view.SetTitle("TeaTime")
-	view.SetSize(680, 480, webview.HintNone)
-	view.Navigate("http://" + addr)
-	view.Run()
+	// Server run context
+	serverCtx, serverStopCtx := context.WithCancel(context.Background())
+
+	// Listen for syscall signals for process to interrupt/quit
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	uiQuit := make(chan bool)
+
+	go func() {
+		select {
+		case <-sig:
+		case <-uiQuit:
+		}
+
+		// Shutdown signal with grace period
+		shutdownCtx, _ := context.WithTimeout(serverCtx, 5*time.Second)
+
+		go func() {
+			<-shutdownCtx.Done()
+			if shutdownCtx.Err() == context.DeadlineExceeded {
+				log.Fatal("graceful shutdown timed out.. forcing exit.")
+			}
+		}()
+
+		// Trigger graceful shutdown
+		err := srv.Shutdown(shutdownCtx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		serverStopCtx()
+	}()
+	go func() { log.Fatal(srv.Serve(listener)) }()
+	go func() {
+		win = NewWindow()
+
+		win.Run()
+		uiQuit <- true
+	}()
+
+	// Wait for server context to be stopped
+	<-serverCtx.Done()
 }
 
 type Response struct {
@@ -92,8 +132,10 @@ func handle(w http.ResponseWriter, r *http.Request) {
 				<-timer.C
 				ticker.Stop()
 				done <- true
+				win.Show()
 			}()
 
+			win.Close()
 		}
 	}
 
@@ -106,5 +148,50 @@ func render(response Response, w http.ResponseWriter) {
 		log.Println(err)
 		http.Error(w, "Error displaying page", http.StatusInternalServerError)
 		return
+	}
+}
+
+type window struct {
+	view webview.WebView
+}
+
+func NewWindow() *window {
+	w := &window{view: webview.New(true)}
+	w.view.SetTitle("TeaTime")
+	w.view.SetSize(680, 480, webview.HintNone)
+	w.view.Navigate("http://" + addr)
+	systray.Register(onReady(w.view))
+	return w
+}
+
+func (w *window) Run() {
+	log.Println("running")
+	w.view.Run() // blocks
+	log.Println("destroying")
+	w.view.Destroy()
+	w.view = nil
+}
+
+func (w *window) Show() {
+	w.view.Show()
+}
+
+func (w *window) Close() {
+	w.view.Hide()
+}
+
+func onReady(w webview.WebView) func() {
+	return func() {
+		systray.SetTitle("TeaTime")
+		mQuit := systray.AddMenuItem("Quit", "Quit")
+
+		go func() {
+			for {
+				select {
+				case <-mQuit.ClickedCh:
+					w.Terminate()
+				}
+			}
+		}()
 	}
 }
