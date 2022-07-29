@@ -59,11 +59,10 @@ func main() {
 		serverStopCtx()
 	}()
 	go func() { log.Fatal(srv.Serve(listener)) }()
-	go func() {
-		win = NewWindow()
-		win.Run()
-		uiQuit <- true
-	}()
+
+	win = NewWindow()
+	win.Run()
+	uiQuit <- true
 
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
