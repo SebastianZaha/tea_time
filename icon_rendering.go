@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	_ "embed"
 	"image"
 	"image/color"
 	"image/png"
@@ -19,12 +20,14 @@ import (
 // https://stackoverflow.com/questions/38299930/how-to-add-a-simple-text-label-to-an-image-in-go
 // https://github.com/golang/freetype/blob/master/example/drawer/main.go
 var (
-	dpi      float64 = 200                             // screen resolution in Dots Per Inch
-	fontfile         = "./ui/fonts/Oswald-Regular.ttf" // filename of the ttf font
-	hinting          = "none"                          // "none | full"
-	size     float64 = 14                              // font size in points
+	dpi     float64 = 200    // screen resolution in Dots Per Inch
+	hinting         = "none" // "none | full"
+	size    float64 = 14     // font size in points
 
 )
+
+//go:embed ui/fonts/Oswald-Regular.ttf
+var fontfile []byte
 
 var (
 	colorHour = parseHexColor("#9afcba")
@@ -33,13 +36,7 @@ var (
 )
 
 func loadFontFace() font.Face {
-	// Read the font data.
-	fontBytes, err := ioutil.ReadFile(fontfile)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-	f, err := truetype.Parse(fontBytes)
+	f, err := truetype.Parse(fontfile)
 	if err != nil {
 		log.Println(err)
 		return nil
