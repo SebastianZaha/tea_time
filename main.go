@@ -27,7 +27,7 @@ func onReady() {
 	if len(os.Args) == 2 {
 		onTimerStart(os.Args[1])
 	} else {
-		q, err := zenity.Entry("Enter duration (e.g. 45s or 25m or 2h2m2s):",
+		q, err := zenity.Entry("Enter a duration like 45s or 1.5m or 2h2m2s or 10",
 			zenity.Title("Enter duration"))
 		if err != nil {
 			os.Exit(0)
@@ -47,6 +47,11 @@ func onReady() {
 
 func onTimerStart(q string) {
 	if q != "" {
+		// If it ends in a digit, assume seconds
+		if '0' <= q[len(q)-1] && q[len(q)-1] <= '9' {
+			q += "s"
+		}
+
 		duration, err := time.ParseDuration(q)
 		if err != nil {
 			log.Println(err)
