@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"log"
+	"math"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -20,7 +19,7 @@ func main() {
 
 func onReady() {
 	systray.SetTitle("TeaTime")
-	icon := drawText("Tea", color.White)
+	icon := draw(13, false, 3, 14)
 	systray.SetTemplateIcon(icon, icon)
 	mQuit := systray.AddMenuItem("Quit", "Quit")
 
@@ -58,7 +57,6 @@ func onTimerStart(q string) {
 		} else {
 			icon := drawDuration(duration)
 			systray.SetTemplateIcon(icon, icon)
-
 			ticker := time.NewTicker(time.Second)
 			done := make(chan bool)
 
@@ -88,14 +86,20 @@ func onTimerStart(q string) {
 }
 
 func drawDuration(d time.Duration) []byte {
-	if d > 99*time.Hour {
-		return drawText("++", colorHour)
+	if d >= 100*time.Hour {
+		return draw(11, false, 11, 11)
+	} else if d >= 10*time.Hour {
+		return draw(byte(d/time.Hour/10), false, byte((d/time.Hour)%10), 11)
 	} else if d > time.Hour {
-		return drawText(strconv.Itoa(int(d/time.Hour)), colorHour)
-	} else if d > 99*time.Second {
-		return drawText(strconv.Itoa(int(d/time.Minute)), colorMin)
+		i, frac := math.Modf(d.Hours())
+		return draw(byte(i), true, byte(frac*10), 11)
+	} else if d >= 10*time.Minute {
+		return draw(byte(d/time.Minute/10), false, byte((d/time.Minute)%10), 10)
+	} else if d > time.Minute {
+		i, frac := math.Modf(d.Minutes())
+		return draw(byte(i), true, byte(frac*10), 10)
 	} else {
-		return drawText(strconv.Itoa(int(d/time.Second)), colorSec)
+		return draw(byte(d/time.Second/10), false, byte(d/time.Second%10), 12)
 	}
 }
 

@@ -9,72 +9,67 @@ import (
 	"image/png"
 	"io/ioutil"
 	"log"
-	"math"
 	"os"
-
-	"github.com/golang/freetype/truetype"
-	"golang.org/x/image/font"
-	"golang.org/x/image/math/fixed"
 )
 
-// https://stackoverflow.com/questions/38299930/how-to-add-a-simple-text-label-to-an-image-in-go
-// https://github.com/golang/freetype/blob/master/example/drawer/main.go
-var (
-	dpi     float64 = 200    // screen resolution in Dots Per Inch
-	hinting         = "none" // "none | full"
-	size    float64 = 14     // font size in points
-
-)
-
-//go:embed ui/fonts/Oswald-Regular.ttf
-var fontfile []byte
-
-var (
-	colorHour = parseHexColor("#9afcba")
-	colorMin  = parseHexColor("#faefa3")
-	colorSec  = parseHexColor("#ff978a")
-)
-
-func loadFontFace() font.Face {
-	f, err := truetype.Parse(fontfile)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
-	h := font.HintingNone
-	switch hinting {
-	case "full":
-		h = font.HintingFull
-	}
-
-	return truetype.NewFace(f, &truetype.Options{
-		Size:    size,
-		DPI:     dpi,
-		Hinting: h,
-	})
+var glyphs = [][]byte{
+	[]byte{0b0110, 0b1001, 0b1001, 0b1011, 0b1101, 0b1001, 0b1001, 0b0110}, // 0
+	[]byte{0b0010, 0b0110, 0b0010, 0b0010, 0b0010, 0b0010, 0b0010, 0b0111}, // 1
+	[]byte{0b0110, 0b1001, 0b0001, 0b0001, 0b0010, 0b0100, 0b1000, 0b1111}, // 2
+	[]byte{0b1111, 0b0001, 0b0010, 0b0101, 0b0001, 0b0001, 0b1001, 0b0110}, // 3
+	[]byte{0b1000, 0b1000, 0b1010, 0b1010, 0b1111, 0b0010, 0b0010, 0b0010},
+	[]byte{0b1111, 0b1000, 0b1000, 0b1110, 0b0001, 0b0001, 0b1001, 0b0110}, // 5
+	[]byte{0b0110, 0b1001, 0b1000, 0b1000, 0b1110, 0b1001, 0b1001, 0b0110},
+	[]byte{0b1111, 0b0001, 0b0001, 0b0010, 0b0010, 0b0100, 0b0100, 0b0010}, // 7
+	[]byte{0b0110, 0b1001, 0b1001, 0b0110, 0b0110, 0b1001, 0b1001, 0b0110},
+	[]byte{0b0110, 0b1001, 0b1001, 0b0111, 0b0001, 0b0001, 0b1001, 0b0110}, // 9
+	[]byte{0b0000, 0b0000, 0b0000, 0b1001, 0b1111, 0b1001, 0b1001, 0b1001}, // m 10
+	[]byte{0b0000, 0b1000, 0b1000, 0b1110, 0b1001, 0b1001, 0b1001, 0b1001}, // h 11
+	[]byte{0b0000, 0b0000, 0b0000, 0b0111, 0b1000, 0b0110, 0b0001, 0b1110}, // s 12
+	[]byte{0b0000, 0b0100, 0b0100, 0b1111, 0b0100, 0b0100, 0b0100, 0b0011}, // t 13
+	[]byte{0b0000, 0b0000, 0b0000, 0b0111, 0b1001, 0b1001, 0b1011, 0b0101}, // a 14
+	[]byte{0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000}, // space 15
 }
 
-var fontFace = loadFontFace()
+func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
+	rgba := image.NewRGBA(image.Rect(0, 0, 16, 16))
 
-func drawText(text string, color color.Color) []byte {
-	const imgW, imgH = 50, 50
-	rgba := image.NewRGBA(image.Rect(0, 0, imgW, imgH))
-	// background? draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
-
-	d := &font.Drawer{
-		Dst:  rgba,
-		Src:  image.NewUniform(color),
-		Face: fontFace,
+	g := glyphs[d1]
+	i0 := 1
+	j0 := 4
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 8; j++ {
+			if g[j]&(1<<(3-i)) > 0 {
+				rgba.Set(i+i0, j+j0, color.Black)
+			}
+		}
 	}
+	if comma {
+		rgba.Set(6, 12, color.Black)
+		rgba.Set(6, 13, color.Black)
+		rgba.Set(5, 14, color.Black)
+	}
+	g = glyphs[d2]
+	i0 = 6
+	j0 = 4
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 8; j++ {
+			if g[j]&(1<<(3-i)) > 0 {
+				rgba.Set(i+i0, j+j0, color.Black)
+			}
+		}
+	}
+	g = glyphs[c]
+	i0 = 11
+	j0 = 4
+	for i := 0; i < 4; i++ {
+		for j := 0; j < 8; j++ {
+			if g[j]&(1<<(3-i)) > 0 {
 
-	x := (fixed.I(imgW) - d.MeasureString(text)) / 2
-	// 4 magic here accounts for our characters always being smaller than the font height
-	fontH := int(math.Ceil(size*dpi/72)) - 4
-	y := (fixed.I(imgH) + fixed.I(fontH)) / 2
-	d.Dot = fixed.Point26_6{x, y}
-	d.DrawString(text)
-
+				rgba.Set(i+i0, j+j0, color.Black)
+			}
+		}
+	}
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
 	err := png.Encode(w, rgba)
@@ -93,40 +88,4 @@ func drawText(text string, color color.Color) []byte {
 		os.Exit(1)
 	}
 	return bs
-}
-
-// https://stackoverflow.com/a/54200713/1306453
-func parseHexColor(s string) (c color.RGBA) {
-	c.A = 0xff
-
-	if s[0] != '#' {
-		log.Fatalf("invalid color format %v, no '#' at start", s)
-	}
-
-	hexToByte := func(b byte) byte {
-		switch {
-		case b >= '0' && b <= '9':
-			return b - '0'
-		case b >= 'a' && b <= 'f':
-			return b - 'a' + 10
-		case b >= 'A' && b <= 'F':
-			return b - 'A' + 10
-		}
-		log.Fatalf("invalid color format %v, includes non hex char %v", s, b)
-		return 0
-	}
-
-	switch len(s) {
-	case 7:
-		c.R = hexToByte(s[1])<<4 + hexToByte(s[2])
-		c.G = hexToByte(s[3])<<4 + hexToByte(s[4])
-		c.B = hexToByte(s[5])<<4 + hexToByte(s[6])
-	case 4:
-		c.R = hexToByte(s[1]) * 17
-		c.G = hexToByte(s[2]) * 17
-		c.B = hexToByte(s[3]) * 17
-	default:
-		log.Fatalf("invalid color format %v, should have 7 or 4 characters", s)
-	}
-	return
 }
