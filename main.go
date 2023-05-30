@@ -11,6 +11,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -24,8 +25,7 @@ func main() {
 }
 
 func onReady() {
-	systray.SetTitle("TeaTime")
-	icon := draw(13, false, 3, 14)
+	icon := drawString("t3a")
 	systray.SetTemplateIcon(icon, icon)
 	mQuit := systray.AddMenuItem("Quit", "Quit")
 
@@ -92,20 +92,24 @@ func onTimerStart(q string) {
 }
 
 func drawDuration(d time.Duration) []byte {
+	if runtime.GOOS == "darwin" {
+		return drawString(d.String())
+	}
+
 	if d >= 100*time.Hour {
-		return draw(11, false, 11, 11)
+		return drawString("hhh")
 	} else if d >= 10*time.Hour {
-		return draw(byte(d/time.Hour/10), false, byte((d/time.Hour)%10), 11)
+		return drawSquare([]byte{byte(d / time.Hour / 10), byte((d / time.Hour) % 10), 11}, false)
 	} else if d > time.Hour {
 		i, frac := math.Modf(d.Hours())
-		return draw(byte(i), true, byte(frac*10), 11)
+		return drawSquare([]byte{byte(i), byte(frac * 10), 11}, true)
 	} else if d >= 10*time.Minute {
-		return draw(byte(d/time.Minute/10), false, byte((d/time.Minute)%10), 10)
+		return drawSquare([]byte{byte(d / time.Minute / 10), byte((d / time.Minute) % 10), 10}, false)
 	} else if d > time.Minute {
 		i, frac := math.Modf(d.Minutes())
-		return draw(byte(i), true, byte(frac*10), 10)
+		return drawSquare([]byte{byte(i), byte(frac * 10), 10}, true)
 	} else {
-		return draw(byte(d/time.Second/10), false, byte(d/time.Second%10), 12)
+		return drawSquare([]byte{byte(d / time.Second / 10), byte(d / time.Second % 10), 12}, false)
 	}
 }
 
@@ -137,48 +141,61 @@ var glyphs = [][]byte{
 	[]byte{0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000}, // space 15
 }
 
-func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
-	rgba := image.NewRGBA(image.Rect(0, 0, 16, 16))
+func glyphIndex(char byte) byte {
+	if char > 47 && char < 58 {
+		return char - 48
+	} else if char == 'm' {
+		return 10
+	} else if char == 'h' {
+		return 11
+	} else if char == 's' {
+		return 12
+	} else {
+		return 15
+	}
+}
 
-	g := glyphs[d1]
-	i0 := 1
-	j0 := 4
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 8; j++ {
-			if g[j]&(1<<(3-i)) > 0 {
-				rgba.Set(i+i0, j+j0, color.Black)
+func drawGlyphs(gs []byte) *image.RGBA {
+	rgba := image.NewRGBA(image.Rect(0, 0, 5*len(gs)+1, 16))
+
+	for gi := 0; gi < len(gs); gi++ {
+		g := glyphs[gs[gi]]
+		i0 := 1 + gi*5
+		j0 := 4
+		for i := 0; i < 4; i++ {
+			for j := 0; j < 8; j++ {
+				if g[j]&(1<<(3-i)) > 0 {
+					rgba.Set(i+i0, j+j0, color.Black)
+				}
 			}
 		}
 	}
+
+	return rgba
+}
+
+func drawString(txt string) []byte {
+	gs := make([]byte, len(txt))
+	for gi := 0; gi < len(txt); gi++ {
+		gs[gi] = glyphIndex(txt[gi])
+	}
+	return render(drawGlyphs(gs))
+}
+
+func drawSquare(gs []byte, comma bool) []byte {
+	rgba := drawGlyphs(gs)
 	if comma {
 		rgba.Set(6, 12, color.Black)
 		rgba.Set(6, 13, color.Black)
 		rgba.Set(5, 14, color.Black)
 	}
-	g = glyphs[d2]
-	i0 = 6
-	j0 = 4
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 8; j++ {
-			if g[j]&(1<<(3-i)) > 0 {
-				rgba.Set(i+i0, j+j0, color.Black)
-			}
-		}
-	}
-	g = glyphs[c]
-	i0 = 11
-	j0 = 4
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 8; j++ {
-			if g[j]&(1<<(3-i)) > 0 {
+	return render(rgba)
+}
 
-				rgba.Set(i+i0, j+j0, color.Black)
-			}
-		}
-	}
+func render(img *image.RGBA) []byte {
 	var b bytes.Buffer
 	w := bufio.NewWriter(&b)
-	err := png.Encode(w, rgba)
+	err := png.Encode(w, img)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
