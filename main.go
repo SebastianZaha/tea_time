@@ -24,7 +24,6 @@ func main() {
 }
 
 func onReady() {
-	systray.SetTitle("TeaTime")
 	icon := draw(13, false, 3, 14)
 	systray.SetTemplateIcon(icon, icon)
 	mQuit := systray.AddMenuItem("Quit", "Quit")
