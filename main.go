@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	ico "github.com/Kodeworks/golang-image-ico"
 	"image"
 	"image/color"
 	"image/png"
@@ -11,6 +12,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/getlantern/systray"
@@ -139,20 +141,27 @@ var glyphs = [][]byte{
 func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
 	rgba := image.NewRGBA(image.Rect(0, 0, 16, 16))
 
+	var txtColor color.Color
+	if runtime.GOOS == "windows" {
+		txtColor = color.White
+	} else {
+		txtColor = color.Black
+	}
+
 	g := glyphs[d1]
 	i0 := 1
 	j0 := 4
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
 			if g[j]&(1<<(3-i)) > 0 {
-				rgba.Set(i+i0, j+j0, color.Black)
+				rgba.Set(i+i0, j+j0, txtColor)
 			}
 		}
 	}
 	if comma {
-		rgba.Set(6, 12, color.Black)
-		rgba.Set(6, 13, color.Black)
-		rgba.Set(5, 14, color.Black)
+		rgba.Set(6, 12, txtColor)
+		rgba.Set(6, 13, txtColor)
+		rgba.Set(5, 14, txtColor)
 	}
 	g = glyphs[d2]
 	i0 = 6
@@ -160,7 +169,7 @@ func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 8; j++ {
 			if g[j]&(1<<(3-i)) > 0 {
-				rgba.Set(i+i0, j+j0, color.Black)
+				rgba.Set(i+i0, j+j0, txtColor)
 			}
 		}
 	}
@@ -171,13 +180,20 @@ func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
 		for j := 0; j < 8; j++ {
 			if g[j]&(1<<(3-i)) > 0 {
 
-				rgba.Set(i+i0, j+j0, color.Black)
+				rgba.Set(i+i0, j+j0, txtColor)
 			}
 		}
 	}
 	var b bytes.Buffer
+	var err error
 	w := bufio.NewWriter(&b)
-	err := png.Encode(w, rgba)
+
+	if runtime.GOOS == "windows" {
+		err = ico.Encode(w, rgba)
+	} else {
+		err = png.Encode(w, rgba)
+	}
+
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
