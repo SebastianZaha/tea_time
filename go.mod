@@ -3,12 +3,12 @@ module sebi.tla.ro/tea_time
 go 1.18
 
 require (
+	github.com/Kodeworks/golang-image-ico v0.0.0-20141118225523-73f0f4cfade9
 	github.com/getlantern/systray v1.2.2
 	github.com/ncruces/zenity v0.10.10
 )
 
 require (
-	github.com/Kodeworks/golang-image-ico v0.0.0-20141118225523-73f0f4cfade9 // indirect
 	github.com/akavel/rsrc v0.10.2 // indirect
 	github.com/dchest/jsmin v0.0.0-20220218165748-59f39799265f // indirect
 	github.com/getlantern/context v0.0.0-20220418194847-3d5e7a086201 // indirect

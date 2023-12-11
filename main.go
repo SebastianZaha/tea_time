@@ -8,18 +8,18 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"io/ioutil"
+	"io"
 	"log"
 	"math"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/getlantern/systray"
 	"github.com/ncruces/zenity"
 )
-
-var uiQuit = make(chan bool)
 
 func main() {
 	systray.Run(onReady, func() {})
@@ -33,11 +33,24 @@ func onReady() {
 	if len(os.Args) == 2 {
 		onTimerStart(os.Args[1])
 	} else {
-		q, err := zenity.Entry("Enter a duration like 45s or 1.5m or 2h2m2s or 10",
-			zenity.Title("Enter duration"))
+		msg := "Enter a duration like 45s or 1.5m or 2h2m2s or 10."
+		hist := []string{}
+		tmpfile := filepath.Join(os.TempDir(), "tea_time.txt")
+		if _, err := os.Stat(tmpfile); err == nil {
+			bs, _ := os.ReadFile(tmpfile)
+			msg += " Prev timers: " + string(bs)
+			hist = strings.Split(string(bs), " ")
+		}
+		q, err := zenity.Entry(msg, zenity.Title("Enter duration"))
 		if err != nil {
+			// either a problem with showing dialog, or cancel pressed
 			os.Exit(0)
 		}
+		hist = append(hist, q)
+		if len(hist) > 4 {
+			hist = hist[1:]
+		}
+		_ = os.WriteFile(tmpfile, []byte(strings.Join(hist, " ")), 0666)
 		onTimerStart(q)
 	}
 
@@ -111,7 +124,7 @@ func drawDuration(d time.Duration) []byte {
 }
 
 func onTimerDone(q string) {
-	zenity.Info(fmt.Sprintf("Timer complete (%s).", q),
+	_ = zenity.Info(fmt.Sprintf("Timer complete (%s).", q),
 		zenity.Title("Done"),
 		zenity.InfoIcon)
 	systray.Quit()
@@ -120,29 +133,30 @@ func onTimerDone(q string) {
 // font rendering
 
 var glyphs = [][]byte{
-	[]byte{0b0110, 0b1001, 0b1001, 0b1011, 0b1101, 0b1001, 0b1001, 0b0110}, // 0
-	[]byte{0b0010, 0b0110, 0b0010, 0b0010, 0b0010, 0b0010, 0b0010, 0b0111}, // 1
-	[]byte{0b0110, 0b1001, 0b0001, 0b0001, 0b0010, 0b0100, 0b1000, 0b1111}, // 2
-	[]byte{0b1111, 0b0001, 0b0010, 0b0101, 0b0001, 0b0001, 0b1001, 0b0110}, // 3
-	[]byte{0b1000, 0b1000, 0b1010, 0b1010, 0b1111, 0b0010, 0b0010, 0b0010},
-	[]byte{0b1111, 0b1000, 0b1000, 0b1110, 0b0001, 0b0001, 0b1001, 0b0110}, // 5
-	[]byte{0b0110, 0b1001, 0b1000, 0b1000, 0b1110, 0b1001, 0b1001, 0b0110},
-	[]byte{0b1111, 0b0001, 0b0001, 0b0010, 0b0010, 0b0100, 0b0100, 0b0010}, // 7
-	[]byte{0b0110, 0b1001, 0b1001, 0b0110, 0b0110, 0b1001, 0b1001, 0b0110},
-	[]byte{0b0110, 0b1001, 0b1001, 0b0111, 0b0001, 0b0001, 0b1001, 0b0110}, // 9
-	[]byte{0b0000, 0b0000, 0b0000, 0b1001, 0b1111, 0b1001, 0b1001, 0b1001}, // m 10
-	[]byte{0b0000, 0b1000, 0b1000, 0b1110, 0b1001, 0b1001, 0b1001, 0b1001}, // h 11
-	[]byte{0b0000, 0b0000, 0b0000, 0b0111, 0b1000, 0b0110, 0b0001, 0b1110}, // s 12
-	[]byte{0b0000, 0b0100, 0b0100, 0b1111, 0b0100, 0b0100, 0b0100, 0b0011}, // t 13
-	[]byte{0b0000, 0b0000, 0b0000, 0b0111, 0b1001, 0b1001, 0b1011, 0b0101}, // a 14
-	[]byte{0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000}, // space 15
+	{0b0110, 0b1001, 0b1001, 0b1011, 0b1101, 0b1001, 0b1001, 0b0110}, // 0
+	{0b0010, 0b0110, 0b0010, 0b0010, 0b0010, 0b0010, 0b0010, 0b0111}, // 1
+	{0b0110, 0b1001, 0b0001, 0b0001, 0b0010, 0b0100, 0b1000, 0b1111}, // 2
+	{0b1111, 0b0001, 0b0010, 0b0101, 0b0001, 0b0001, 0b1001, 0b0110}, // 3
+	{0b1000, 0b1000, 0b1010, 0b1010, 0b1111, 0b0010, 0b0010, 0b0010},
+	{0b1111, 0b1000, 0b1000, 0b1110, 0b0001, 0b0001, 0b1001, 0b0110}, // 5
+	{0b0110, 0b1001, 0b1000, 0b1000, 0b1110, 0b1001, 0b1001, 0b0110},
+	{0b1111, 0b0001, 0b0001, 0b0010, 0b0010, 0b0100, 0b0100, 0b0010}, // 7
+	{0b0110, 0b1001, 0b1001, 0b0110, 0b0110, 0b1001, 0b1001, 0b0110},
+	{0b0110, 0b1001, 0b1001, 0b0111, 0b0001, 0b0001, 0b1001, 0b0110}, // 9
+	{0b0000, 0b0000, 0b0000, 0b1001, 0b1111, 0b1001, 0b1001, 0b1001}, // m 10
+	{0b0000, 0b1000, 0b1000, 0b1110, 0b1001, 0b1001, 0b1001, 0b1001}, // h 11
+	{0b0000, 0b0000, 0b0000, 0b0111, 0b1000, 0b0110, 0b0001, 0b1110}, // s 12
+	{0b0000, 0b0100, 0b0100, 0b1111, 0b0100, 0b0100, 0b0100, 0b0011}, // t 13
+	{0b0000, 0b0000, 0b0000, 0b0111, 0b1001, 0b1001, 0b1011, 0b0101}, // a 14
+	{0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0000}, // space 15
 }
 
 func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
 	rgba := image.NewRGBA(image.Rect(0, 0, 16, 16))
 
 	var txtColor color.Color
-	if runtime.GOOS == "windows" {
+	if //goland:noinspection ALL
+	runtime.GOOS == "windows" {
 		txtColor = color.White
 	} else {
 		txtColor = color.Black
@@ -188,7 +202,8 @@ func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
 	var err error
 	w := bufio.NewWriter(&b)
 
-	if runtime.GOOS == "windows" {
+	if //goland:noinspection ALL
+	runtime.GOOS == "windows" {
 		err = ico.Encode(w, rgba)
 	} else {
 		err = png.Encode(w, rgba)
@@ -203,7 +218,7 @@ func draw(d1 byte, comma bool, d2 byte, c byte) []byte {
 		log.Println(err)
 		os.Exit(1)
 	}
-	bs, err := ioutil.ReadAll(&b)
+	bs, err := io.ReadAll(&b)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
